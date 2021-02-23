@@ -1,6 +1,6 @@
 export class MaestroMagician {
     private _classNamePartial: string;
-    private _node: Node;
+    private _node: Node | null = null;
     private _observer: MutationObserver;
     private _config = { childList: true, subtree: true };
     private _callback: Function;
@@ -8,8 +8,8 @@ export class MaestroMagician {
     constructor(classNamePartial: string, callback: Function) {
         this._classNamePartial = classNamePartial;
         this._callback = callback;
-        this._setNode();
-        this._initObserver();
+        this._node = this._findNode();
+        this._observer = new MutationObserver(this._callback.bind(this));
         this._startObserving();
 
         const dObserver = new MutationObserver(this._resetObserver.bind(this));
@@ -33,25 +33,22 @@ export class MaestroMagician {
         if (snapshot.snapshotLength === 1) {
             return snapshot.snapshotItem(0);
         } else {
+            console.error(
+                "Error: Could not find the given node or there is more than one"
+            );
             return null;
         }
     }
 
     _setNode() {
         this._node = this._findNode();
-
-        if (!this._node) {
-            console.error(
-                "Error: Could not find the given node or there is more than one"
-            );
-        }
-    }
-
-    _initObserver() {
-        this._observer = new MutationObserver(this._callback.bind(this));
     }
 
     _startObserving() {
+        if (!this._node) {
+            return;
+        }
+
         this._observer.observe(this._node, this._config);
     }
 

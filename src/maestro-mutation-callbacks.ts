@@ -1,4 +1,4 @@
-import { findByInnerText } from "./utils";
+import { findByInnerText } from "./maestro-utils";
 
 const ADD_TO_CART_TEXT = "ADD TO CART";
 const QUANTITY_TEXT = "Quantity";
@@ -25,12 +25,13 @@ const hideQuantityWidgets = (div: HTMLDivElement) => {
 };
 
 export const cartAndQuantityMutationCallback = (
-    mutationList: any,
-    observer: any
+    mutationList: MutationRecord[]
 ) => {
     for (const mutation of mutationList) {
-        const target = mutation.target;
-        findByInnerText(target, ADD_TO_CART_TEXT, BUTTON, hideAddToCart);
-        findByInnerText(target, QUANTITY_TEXT, DIV, hideQuantityWidgets);
+        const target = mutation.target.parentElement;
+        if (target) {
+            findByInnerText(target, ADD_TO_CART_TEXT, BUTTON, hideAddToCart);
+            findByInnerText(target, QUANTITY_TEXT, DIV, hideQuantityWidgets);
+        }
     }
 };

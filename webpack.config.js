@@ -1,10 +1,11 @@
 const path = require('path');
 const webpack = require('webpack');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 module.exports = {
   mode: 'production',
-  entry: './src/index.ts',
-  plugins: [new webpack.ProgressPlugin()],
+  entry: './src/maestro-injection.ts',
+  plugins: [new webpack.ProgressPlugin(), new CleanWebpackPlugin()],
 
   output: {
     filename: "[name].[contenthash].js",

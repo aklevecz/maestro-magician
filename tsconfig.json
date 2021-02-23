@@ -2,11 +2,12 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
-    "module": "commonjs",
+    "module": "esnext",
     "target": "es5",
-    "allowJs": true
+    "allowJs": true,
+    "outDir":"build"
   },
   "files": [
-    "src/index.ts"
+    "src/maestro-injection.ts"
   ]
 }
