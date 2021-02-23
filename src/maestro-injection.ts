@@ -6,4 +6,3 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Making things disappear...")
     new MaestroMagician("SidebarContainer", cartAndQuantityMutationCallback);
 });
-    new MaestroMagician("SidebarContainer", cartAndQuantityMutationCallback);
