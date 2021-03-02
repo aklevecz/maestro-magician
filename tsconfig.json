@@ -5,7 +5,8 @@
     "module": "esnext",
     "target": "es5",
     "allowJs": true,
-    "outDir":"build"
+    "outDir":"build",
+    "moduleResolution": "node"
   },
   "files": [
     "src/maestro-injection.ts"

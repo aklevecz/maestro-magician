@@ -1,20 +1,31 @@
+type MutationConfig ={
+    childList: true;
+    subtree?: true
+}
+
 export class MaestroMagician {
     private _classNamePartial: string;
     private _node: Node | null = null;
     private _observer: MutationObserver;
     private _config = { childList: true, subtree: true };
     private _callback: Function;
+    private _window: Window
+    
 
-    constructor(classNamePartial: string, callback: Function) {
+    constructor(classNamePartial: string, callback: Function, window: Window, refreshConfig?: MutationConfig ) {
         this._classNamePartial = classNamePartial;
         this._callback = callback;
+        this._window = window;
+
         this._node = this._findNode();
         this._observer = new MutationObserver(this._callback.bind(this));
         this._startObserving();
 
         const dObserver = new MutationObserver(this._resetObserver.bind(this));
-        dObserver.observe(document.body, { childList: true });
+        dObserver.observe(document.body, refreshConfig ? refreshConfig : this._config);
     }
+
+
 
     _resetObserver() {
         this._stopObserving();
