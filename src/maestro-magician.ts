@@ -9,13 +9,10 @@ export class MaestroMagician {
     private _observer: MutationObserver;
     private _config = { childList: true, subtree: true };
     private _callback: Function;
-    private _window: Window
-    
 
     constructor(classNamePartial: string, callback: Function, window: Window, refreshConfig?: MutationConfig ) {
         this._classNamePartial = classNamePartial;
         this._callback = callback;
-        this._window = window;
 
         this._node = this._findNode();
         this._observer = new MutationObserver(this._callback.bind(this));

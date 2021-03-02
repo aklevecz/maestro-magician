@@ -1,9 +1,6 @@
 import { MaestroMagician } from "./maestro-magician";
 import { MaestroUser } from "./maestro-user";
-import {
-    cartAndQuantityMutationCallback,
-    createAccountOrLogin,
-} from "./maestro-mutation-callbacks";
+import { cartAndQuantityMutationCallback } from "./maestro-mutation-callbacks";
 
 declare global {
     interface Window {
@@ -22,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     const user = new MaestroUser(window);
 });
+    // const user = new MaestroUser(window);
 
 // const m = new MaestroMagician(
 //     "SidebarContainer",

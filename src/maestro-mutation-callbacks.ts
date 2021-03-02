@@ -35,13 +35,3 @@ export const cartAndQuantityMutationCallback = (
         }
     }
 };
-
-
-export const createAccountOrLogin = (mutationList: MutationRecord[]) => {
-    for (const mutation of mutationList) {
-        const target = mutation.target.parentElement
-        if (target) {
-            
-        }
-    }
-}

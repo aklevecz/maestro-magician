@@ -1,11 +1,28 @@
 import jwt_decode from "jwt-decode";
 import { findByClassPartial, findByInnerText } from "./maestro-utils";
+
 declare global {
     interface Window {
         analytics: any;
         m: any;
+        userDisplayName: string;
+        userAccountId: string;
+        userDisplayNameSavedTime: number;
+        userEmail: string;
+        modifiedAt: number;
+        roles: UserRoles[];
+        siteId: string;
+        subscriptions: string[];
+        uid: string;
+        created: number;
+        modified: number;
+        tags: string[];
+        service: string;
+        iat: number;
+        exp: number;
     }
 }
+
 type UserRoles = {
     scope: string;
     pageId: string[];
@@ -209,6 +226,18 @@ export class MaestroUser {
             modifiedAt: this.attrs.modified,
             username: this.attrs.name,
         });
+        window.userDisplayName = this.attrs.name;
+        window.userAccountId = this.attrs._id;
+        window.userDisplayNameSavedTime = Date.now();
+        window.userEmail = this.attrs.email;
+        window.modifiedAt = this.attrs.modified;
+        window.service = this.attrs.service;
+        window.roles = this.attrs.roles;
+        window.siteId = this.attrs.siteId;
+        window.created = this.attrs.created;
+        window.iat = this.attrs.iat;
+        window.exp = this.attrs.exp;
+        window.subscriptions = this.attrs.subscriptions;
+        window.uid = this.attrs.uid;
     }
 }
-
