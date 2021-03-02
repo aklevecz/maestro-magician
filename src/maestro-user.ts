@@ -92,10 +92,10 @@ export class MaestroUser {
         const jwtKey = keys.find((key) => key.includes("accessToken"));
         const jwt = localStorage.getItem(jwtKey);
         if (jwt) {
-            console.log("user signed in");
+            // console.log("user signed in");
             return jwt_decode(jwt) as UserAttrs;
         } else {
-            console.log("user is not signed in");
+            // console.log("user is not signed in");
             return null;
         }
     }
