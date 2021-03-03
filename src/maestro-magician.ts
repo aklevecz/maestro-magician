@@ -22,8 +22,6 @@ export class MaestroMagician {
         dObserver.observe(document.body, refreshConfig ? refreshConfig : this._config);
     }
 
-
-
     _resetObserver() {
         this._stopObserving();
         this._setNode();

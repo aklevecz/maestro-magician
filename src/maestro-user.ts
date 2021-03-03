@@ -1,29 +1,13 @@
+import { CustomWindow } from "./custom.window";
 import jwt_decode from "jwt-decode";
 import { findByClassPartial, findByInnerText } from "./maestro-utils";
+import {
+    trackIdentify,
+    trackUserCreateAccount,
+    trackUserLogin,
+} from "./maestro-segment-calls";
 
-declare global {
-    interface Window {
-        analytics: any;
-        m: any;
-        userDisplayName: string;
-        userAccountId: string;
-        userDisplayNameSavedTime: number;
-        userEmail: string;
-        modifiedAt: number;
-        roles: UserRoles[];
-        siteId: string;
-        subscriptions: string[];
-        uid: string;
-        created: number;
-        modified: number;
-        tags: string[];
-        service: string;
-        iat: number;
-        exp: number;
-    }
-}
-
-type UserRoles = {
+export type UserRoles = {
     scope: string;
     pageId: string[];
     write: boolean;
@@ -57,21 +41,35 @@ type UIState = {
     emailOptin?: boolean;
 };
 
+enum ElementTags {
+    BUTTON = "button",
+    INPUT = "input",
+}
+
+const initialUiState: UIState = {
+    login: false,
+    signup: false,
+    loginButton: null,
+    signupButton: null,
+    confirmButton: null,
+};
+
 export class MaestroUser {
+    private static TOKEN_PARTIAL = "accessToken";
+    private static CHECKBOX_CLASS_PARTIAL = "Checkbox__Input";
+    private static SIGNUP_BUTTON_INNERTEXT = "SIGN UP";
+    private static LOGIN_BUTTON_INNERTEXT = "LOG IN";
+    private static CONFIRM_EMAIL_BUTTON_INNERTEXT = "CONFIRM EMAIL";
+
     public attrs: UserAttrs = null;
     private _authenticated: boolean = false;
-    private _uiState: UIState = {
-        login: false,
-        signup: false,
-        loginButton: null,
-        signupButton: null,
-        confirmButton: null,
-    };
-    private _window: Window;
+    private _uiState = initialUiState;
+    private _window: CustomWindow;
 
-    private _boundConfirmButtonClick: EventListenerObject;
+    private _boundOnConfirmButtonClick: EventListenerObject;
+    private _boundOnSignupButtonClick: EventListenerObject;
 
-    constructor(window: Window) {
+    constructor(window: CustomWindow) {
         this._window = window;
         const decodedJwt = this.getTokenFromStorage();
         if (decodedJwt) {
@@ -82,20 +80,21 @@ export class MaestroUser {
         const dObserver = new MutationObserver(this.checkForUser.bind(this));
         dObserver.observe(document.body, { childList: true, subtree: true });
 
-        this._boundConfirmButtonClick = this._onConfirmEmailButtonClick.bind(
+        this._boundOnConfirmButtonClick = this._onConfirmEmailButtonClick.bind(
             this
         );
+        this._boundOnSignupButtonClick = this._onSignupButtonClick.bind(this);
     }
 
-    getTokenFromStorage() {
+    getTokenFromStorage(): UserAttrs | null {
         const keys = Object.keys(localStorage);
-        const jwtKey = keys.find((key) => key.includes("accessToken"));
+        const jwtKey = keys.find((key) =>
+            key.includes(MaestroUser.TOKEN_PARTIAL)
+        );
         const jwt = localStorage.getItem(jwtKey);
         if (jwt) {
-            // console.log("user signed in");
             return jwt_decode(jwt) as UserAttrs;
         } else {
-            // console.log("user is not signed in");
             return null;
         }
     }
@@ -107,11 +106,9 @@ export class MaestroUser {
             this._authenticated = true;
             this._userIdentify();
             if (this._uiState.login) {
-                window.analytics.track("Account Logged In - Client", {
-                    email: this.attrs.email,
-                    username: this.attrs.name,
-                });
+                trackUserLogin(this.attrs.email, this.attrs.name, this._window);
             }
+            this._uiState = initialUiState
         } else if (!decodedJwt) {
             this._authenticated = false;
             this.attrs = null;
@@ -119,51 +116,51 @@ export class MaestroUser {
         }
     }
 
-    _lookForModal(mutationList: any) {
+    _lookForModal(mutationList: MutationRecord[]) {
         for (const mutation of mutationList) {
             const target = mutation.target.parentElement;
             findByInnerText(
                 target,
-                "SIGN UP",
-                "button",
+                MaestroUser.SIGNUP_BUTTON_INNERTEXT,
+                ElementTags.BUTTON,
                 this._findSignupButton.bind(this)
             );
             findByInnerText(
                 target,
-                "LOG IN",
-                "button",
+                MaestroUser.LOGIN_BUTTON_INNERTEXT,
+                ElementTags.BUTTON,
                 this._findLoginButton.bind(this)
             );
             findByInnerText(
                 target,
-                "CONFIRM EMAIL",
-                "button",
+                MaestroUser.CONFIRM_EMAIL_BUTTON_INNERTEXT,
+                ElementTags.BUTTON,
                 this._findConfirmEmailButton.bind(this)
             );
         }
     }
 
     _findLoginButton(el: HTMLButtonElement) {
-        if (el.innerText === "LOG IN") {
+        if (el.innerText === MaestroUser.LOGIN_BUTTON_INNERTEXT) {
             this._uiState = { login: true, signup: false, loginButton: el };
-            this._uiState.loginButton.addEventListener(
-                "click",
-                this._onLoginButtonClick.bind(this)
-            );
+            // this._uiState.loginButton.addEventListener(
+            //     "click",
+            //     this._onLoginButtonClick.bind(this)
+            // );
         }
     }
 
     // NOT NCESSARY?
-    _onLoginButtonClick() {
-        this.getTokenFromStorage();
-    }
+    // _onLoginButtonClick() {
+    //     this.getTokenFromStorage();
+    // }
 
     _findSignupButton(el: HTMLButtonElement) {
-        if (el.innerText === "SIGN UP") {
+        if (el.innerText === MaestroUser.SIGNUP_BUTTON_INNERTEXT) {
             this._uiState = { login: false, signup: true, signupButton: el };
             this._uiState.signupButton.addEventListener(
                 "click",
-                this._onSignupButtonClick.bind(this)
+                this._boundOnSignupButtonClick
             );
         }
     }
@@ -176,68 +173,74 @@ export class MaestroUser {
         )[0] as HTMLInputElement).value;
         const optin = (findByClassPartial(
             document,
-            "input",
-            "Checkbox__Input"
+            ElementTags.INPUT,
+            MaestroUser.CHECKBOX_CLASS_PARTIAL
         ) as HTMLInputElement).checked;
 
         this._uiState.name = name;
         this._uiState.email = email;
         this._uiState.emailOptin = optin;
 
-        // THIS DOESNT DO ANYTHING AT THE MOMENT
         this._uiState.signupButton.removeEventListener(
             "click",
-            this._onSignupButtonClick.bind(this)
+            this._boundOnSignupButtonClick
         );
     }
 
     _findConfirmEmailButton(el: HTMLButtonElement) {
-        if (el.innerText === "CONFIRM EMAIL") {
+        if (el.innerText === MaestroUser.CONFIRM_EMAIL_BUTTON_INNERTEXT) {
             if (this._uiState.confirmButton) {
                 this._uiState.confirmButton.removeEventListener(
                     "click",
-                    this._boundConfirmButtonClick
+                    this._boundOnConfirmButtonClick
                 );
             }
             this._uiState = { ...this._uiState, confirmButton: el };
             this._uiState.confirmButton.addEventListener(
                 "click",
-                this._boundConfirmButtonClick
+                this._boundOnConfirmButtonClick
             );
         }
     }
 
     _onConfirmEmailButtonClick() {
         if (this._uiState.email && this._uiState.name) {
-            window.analytics.track("Account Created - Client", {
-                authProvider: "email",
-                email: this._uiState.email,
-                username: this._uiState.name,
-                emailOptin: this._uiState.emailOptin,
-            });
+            trackUserCreateAccount(
+                this._uiState.email,
+                this._uiState.name,
+                this._uiState.emailOptin,
+                this._window
+            );
         }
     }
 
     _userIdentify() {
-        this._window.analytics.identify(this.attrs._id, {
-            createdAt: new Date(this.attrs.created),
-            email: this.attrs.email,
-            emailOptin: this.attrs.marketingOptin,
-            modifiedAt: this.attrs.modified,
-            username: this.attrs.name,
-        });
-        window.userDisplayName = this.attrs.name;
-        window.userAccountId = this.attrs._id;
-        window.userDisplayNameSavedTime = Date.now();
-        window.userEmail = this.attrs.email;
-        window.modifiedAt = this.attrs.modified;
-        window.service = this.attrs.service;
-        window.roles = this.attrs.roles;
-        window.siteId = this.attrs.siteId;
-        window.created = this.attrs.created;
-        window.iat = this.attrs.iat;
-        window.exp = this.attrs.exp;
-        window.subscriptions = this.attrs.subscriptions;
-        window.uid = this.attrs.uid;
+        trackIdentify(
+            this.attrs._id,
+            this.attrs.created,
+            this.attrs.email,
+            this.attrs.marketingOptin,
+            this.attrs.modified,
+            this.attrs.name,
+            this._window
+        );
+
+        this._applyWindowVarsForOverlays();
+    }
+
+    _applyWindowVarsForOverlays() {
+        this._window.userDisplayName = this.attrs.name;
+        this._window.userAccountId = this.attrs._id;
+        this._window.userDisplayNameSavedTime = Date.now();
+        this._window.userEmail = this.attrs.email;
+        this._window.modifiedAt = this.attrs.modified;
+        this._window.service = this.attrs.service;
+        this._window.roles = this.attrs.roles;
+        this._window.siteId = this.attrs.siteId;
+        this._window.created = this.attrs.created;
+        this._window.iat = this.attrs.iat;
+        this._window.exp = this.attrs.exp;
+        this._window.subscriptions = this.attrs.subscriptions;
+        this._window.uid = this.attrs.uid;
     }
 }
