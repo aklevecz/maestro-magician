@@ -1,8 +1,9 @@
 import { CustomWindow } from "./custom.window";
 import jwt_decode from "jwt-decode";
-import { findByInnerText } from "./maestro-utils";
+import { findByClassPartial, findByInnerText } from "./maestro-utils";
 import {
     trackIdentify,
+    trackUserCreateAccount,
     trackUserLogin,
 } from "./maestro-segment-calls";
 
@@ -37,7 +38,7 @@ type UIState = {
     confirmButton?: HTMLButtonElement | null;
     email?: string;
     name?: string;
-    emailOptin: boolean;
+    emailOptin?: boolean;
 };
 
 enum ElementTags {
@@ -51,17 +52,22 @@ const initialUiState: UIState = {
     loginButton: null,
     signupButton: null,
     confirmButton: null,
-    emailOptin: false,
 };
 
 export class MaestroUser {
     private static TOKEN_PARTIAL = "accessToken";
+    private static CHECKBOX_CLASS_PARTIAL = "Checkbox__Input";
+    private static SIGNUP_BUTTON_INNERTEXT = "SIGN UP";
     private static LOGIN_BUTTON_INNERTEXT = "LOG IN";
+    private static CONFIRM_EMAIL_BUTTON_INNERTEXT = "CONFIRM EMAIL";
 
-    public attrs: UserAttrs | null = null;
+    public attrs: UserAttrs = null;
     private _authenticated: boolean = false;
     private _uiState = initialUiState;
     private _window: CustomWindow;
+
+    private _boundOnConfirmButtonClick: EventListenerObject;
+    private _boundOnSignupButtonClick: EventListenerObject;
 
     constructor(window: CustomWindow) {
         this._window = window;
@@ -73,6 +79,11 @@ export class MaestroUser {
         }
         const dObserver = new MutationObserver(this.checkForUser.bind(this));
         dObserver.observe(document.body, { childList: true, subtree: true });
+
+        this._boundOnConfirmButtonClick = this._onConfirmEmailButtonClick.bind(
+            this
+        );
+        this._boundOnSignupButtonClick = this._onSignupButtonClick.bind(this);
     }
 
     getTokenFromStorage(): UserAttrs | null {
@@ -80,13 +91,12 @@ export class MaestroUser {
         const jwtKey = keys.find((key) =>
             key.includes(MaestroUser.TOKEN_PARTIAL)
         );
-        if (jwtKey) {
-            const jwt = localStorage.getItem(jwtKey);
-            if (jwt) {
-                return jwt_decode(jwt) as UserAttrs;
-            }
+        const jwt = localStorage.getItem(jwtKey);
+        if (jwt) {
+            return jwt_decode(jwt) as UserAttrs;
+        } else {
+            return null;
         }
-        return null;
     }
 
     checkForUser(mutationList: any) {
@@ -98,7 +108,7 @@ export class MaestroUser {
             if (this._uiState.login) {
                 trackUserLogin(this.attrs.email, this.attrs.name, this._window);
             }
-            this._uiState = initialUiState;
+            this._uiState = initialUiState
         } else if (!decodedJwt) {
             this._authenticated = false;
             this.attrs = null;
@@ -109,32 +119,93 @@ export class MaestroUser {
     _lookForModal(mutationList: MutationRecord[]) {
         for (const mutation of mutationList) {
             const target = mutation.target.parentElement;
-            if (target) {
-                findByInnerText(
-                    target,
-                    MaestroUser.LOGIN_BUTTON_INNERTEXT,
-                    ElementTags.BUTTON,
-                    this._findLoginButton.bind(this)
-                );
-            }
+            findByInnerText(
+                target,
+                MaestroUser.SIGNUP_BUTTON_INNERTEXT,
+                ElementTags.BUTTON,
+                this._findSignupButton.bind(this)
+            );
+            findByInnerText(
+                target,
+                MaestroUser.LOGIN_BUTTON_INNERTEXT,
+                ElementTags.BUTTON,
+                this._findLoginButton.bind(this)
+            );
+            findByInnerText(
+                target,
+                MaestroUser.CONFIRM_EMAIL_BUTTON_INNERTEXT,
+                ElementTags.BUTTON,
+                this._findConfirmEmailButton.bind(this)
+            );
         }
     }
 
     _findLoginButton(el: HTMLButtonElement) {
         if (el.innerText === MaestroUser.LOGIN_BUTTON_INNERTEXT) {
-            this._uiState = {
-                ...this._uiState,
-                login: true,
-                signup: false,
-                loginButton: el,
-            };
+            this._uiState = { login: true, signup: false, loginButton: el };
+        }
+    }
+
+    _findSignupButton(el: HTMLButtonElement) {
+        if (el.innerText === MaestroUser.SIGNUP_BUTTON_INNERTEXT) {
+            this._uiState = { login: false, signup: true, signupButton: el };
+            this._uiState.signupButton.addEventListener(
+                "click",
+                this._boundOnSignupButtonClick
+            );
+        }
+    }
+
+    _onSignupButtonClick() {
+        const name = (document.getElementsByName("name")[0] as HTMLInputElement)
+            .value;
+        const email = (document.getElementsByName(
+            "email"
+        )[0] as HTMLInputElement).value;
+        const optin = (findByClassPartial(
+            document,
+            ElementTags.INPUT,
+            MaestroUser.CHECKBOX_CLASS_PARTIAL
+        ) as HTMLInputElement).checked;
+
+        this._uiState.name = name;
+        this._uiState.email = email;
+        this._uiState.emailOptin = optin;
+
+        this._uiState.signupButton.removeEventListener(
+            "click",
+            this._boundOnSignupButtonClick
+        );
+    }
+
+    _findConfirmEmailButton(el: HTMLButtonElement) {
+        if (el.innerText === MaestroUser.CONFIRM_EMAIL_BUTTON_INNERTEXT) {
+            if (this._uiState.confirmButton) {
+                this._uiState.confirmButton.removeEventListener(
+                    "click",
+                    this._boundOnConfirmButtonClick
+                );
+            }
+            this._uiState = { ...this._uiState, confirmButton: el };
+            this._uiState.confirmButton.addEventListener(
+                "click",
+                this._boundOnConfirmButtonClick
+            );
+        }
+    }
+
+    _onConfirmEmailButtonClick() {
+        if (this._uiState.email && this._uiState.name) {
+            trackUserCreateAccount(
+                this._uiState.email,
+                this._uiState.name,
+                this._uiState.emailOptin,
+                this._window
+            );
         }
     }
 
     _userIdentify() {
-        if (!this.attrs) {
-            return;
-        }
         trackIdentify(
             this.attrs._id,
             this.attrs.created,
@@ -149,9 +220,6 @@ export class MaestroUser {
     }
 
     _applyWindowVarsForOverlays() {
-        if (!this.attrs) {
-            return;
-        }
         this._window.userDisplayName = this.attrs.name;
         this._window.userAccountId = this.attrs._id;
         this._window.userDisplayNameSavedTime = Date.now();

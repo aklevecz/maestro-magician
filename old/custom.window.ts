@@ -2,6 +2,7 @@ import { UserRoles } from "./maestro-user";
 
 export interface CustomWindow extends Window {
     analytics: any;
+    m: any;
     userDisplayName: string;
     userAccountId: string;
     userDisplayNameSavedTime: number;

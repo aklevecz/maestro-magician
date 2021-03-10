@@ -10,7 +10,7 @@ export class MaestroMagician {
     private _config = { childList: true, subtree: true };
     private _callback: Function;
 
-    constructor(classNamePartial: string, callback: Function, refreshConfig?: MutationConfig ) {
+    constructor(classNamePartial: string, callback: Function, window: Window, refreshConfig?: MutationConfig ) {
         this._classNamePartial = classNamePartial;
         this._callback = callback;
 
